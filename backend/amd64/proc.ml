@@ -333,6 +333,7 @@ let destroyed_at_oper = function
        | Iname_for_debugger _ | Iprobe _| Iprobe_is_enabled _)
   | Iend | Ireturn _ | Iifthenelse (_, _, _) | Icatch (_, _, _, _)
   | Iexit _ | Iraise _
+  | Iop(Ispecific(Iintarithmem(_,_)))
     ->
     if fp then
 (* prevent any use of the frame pointer ! *)
@@ -393,7 +394,8 @@ let max_register_pressure =
   | Ispecific(Ilea _ | Isextend32 | Izextend32
              | Irdtsc | Irdpmc | Icrc32q | Istore_int (_, _, _)
              | Ioffset_loc (_, _) | Ifloatarithmem (_, _)
-             | Ibswap _ | Ifloatsqrtf _ | Isqrtf)
+             | Ibswap _ | Ifloatsqrtf _ | Isqrtf
+             | Iintarithmem (_,_))
   | Iname_for_debugger _ | Iprobe _ | Iprobe_is_enabled _
     -> consumes ~int:0 ~float:0
 
@@ -417,6 +419,7 @@ let op_is_pure = function
   | Icompf _
   | Ifloatofint | Iintoffloat | Iconst_int _ | Iconst_float _ | Iconst_symbol _
   | Iload (_, _) | Iname_for_debugger _
+  | Ispecific (Iintarithmem(_,_))
     -> true
 
 (* Layout of the stack frame *)

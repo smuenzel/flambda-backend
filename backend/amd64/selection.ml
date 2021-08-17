@@ -107,7 +107,7 @@ let pseudoregs_for_operation op arg res =
   | Ispecific (Ibswap _) -> assert false
   | Iintop(Imulh) ->
       ([| rax; arg.(1) |], [| rdx |])
-  | Ispecific(Ifloatarithmem(_,_)) ->
+  | Ispecific(Ifloatarithmem(_,_) | Iintarithmem(_,_)) ->
       let arg' = Array.copy arg in
       arg'.(0) <- res.(0);
       (arg', res)
@@ -228,16 +228,54 @@ method! select_store is_assign addr exp =
     ->
       super#select_store is_assign addr exp
 
+method select_lea op args dbg =
+  match self#select_addressing Word_int (Cop(op, args, dbg)) with
+    (Iindexed _, _)
+  | (Iindexed2 0, _) -> super#select_operation op args dbg
+  | ((Iindexed2 _ | Iscaled _ | Iindexed2scaled _ | Ibased _) as addr,
+     arg) -> (Ispecific(Ilea addr), [arg])
+
+method select_intarith commutative regular_op mem_op args dbg =
+  match args with
+  | [arg1; Cop(Cload ((Word_int | Word_val as chunk), _), [loc2], _)] ->
+      let (addr, arg2) = self#select_addressing chunk loc2 in
+      (Ispecific(Iintarithmem(mem_op, addr)),
+                 [arg1; arg2])
+  | [Cop(Cload ((Word_int | Word_val as chunk), _), [loc1], _); arg2]
+        when commutative ->
+      let (addr, arg1) = self#select_addressing chunk loc1 in
+      (Ispecific(Iintarithmem(mem_op, addr)),
+                 [arg2; arg1])
+  | _ ->
+    match regular_op with
+    | Caddi | Caddv | Cadda | Csubi ->
+      self#select_lea regular_op args dbg
+    (* Recognize zero extension *)
+    | Cand ->
+      begin match args with
+        | [arg; Cconst_int (0xffff_ffff, _)]
+        | [arg; Cconst_natint (0xffff_ffffn, _)]
+        | [Cconst_int (0xffff_ffff, _); arg]
+        | [Cconst_natint (0xffff_ffffn, _); arg] ->
+          Ispecific Izextend32, [arg]
+        | _ -> super#select_operation regular_op args dbg
+      end
+    | _ ->
+      super#select_operation regular_op args dbg
+
 method! select_operation op args dbg =
   match op with
+  | Caddi | Caddv | Cadda ->
+    self#select_intarith true op Iintadd args dbg
   (* Recognize the LEA instruction *)
-    Caddi | Caddv | Cadda | Csubi ->
-      begin match self#select_addressing Word_int (Cop(op, args, dbg)) with
-        (Iindexed _, _)
-      | (Iindexed2 0, _) -> super#select_operation op args dbg
-      | ((Iindexed2 _ | Iscaled _ | Iindexed2scaled _ | Ibased _) as addr,
-         arg) -> (Ispecific(Ilea addr), [arg])
-      end
+  | Csubi ->
+    self#select_intarith false Csubi Iintsub args dbg
+  | Cand ->
+    self#select_intarith true Cand Iintand args dbg
+  | Cor ->
+    self#select_intarith true Cor Iintor args dbg
+  | Cxor ->
+    self#select_intarith true Cor Iintxor args dbg
   (* Recognize float arithmetic with memory. *)
   | Caddf ->
       self#select_floatarith true Iaddf Ifloatadd args
@@ -291,16 +329,6 @@ method! select_operation op args dbg =
           (Ispecific Isextend32, [k])
         | _ -> super#select_operation op args dbg
       end
-  (* Recognize zero extension *)
-  | Cand ->
-    begin match args with
-    | [arg; Cconst_int (0xffff_ffff, _)]
-    | [arg; Cconst_natint (0xffff_ffffn, _)]
-    | [Cconst_int (0xffff_ffff, _); arg]
-    | [Cconst_natint (0xffff_ffffn, _); arg] ->
-      Ispecific Izextend32, [arg]
-    | _ -> super#select_operation op args dbg
-    end
   | _ -> super#select_operation op args dbg
 
 (* Recognize float arithmetic with mem *)

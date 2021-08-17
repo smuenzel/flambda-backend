@@ -66,9 +66,13 @@ type specific_operation =
   | Irdtsc                             (* read timestamp *)
   | Irdpmc                             (* read performance counter *)
   | Icrc32q                            (* compute crc *)
+  | Iintarithmem of int_operation * addressing_mode
 
 and float_operation =
     Ifloatadd | Ifloatsub | Ifloatmul | Ifloatdiv
+
+and int_operation =
+    Iintadd | Iintsub | Iintand | Iintor | Iintxor
 
 (* Sizes, endianness *)
 
@@ -145,6 +149,17 @@ let print_specific_operation printreg op ppf arg =
       | Ifloatmul -> "*f"
       | Ifloatdiv -> "/f" in
       fprintf ppf "%a %s float64[%a]" printreg arg.(0) (op_name op)
+                   (print_addressing printreg addr)
+                   (Array.sub arg 1 (Array.length arg - 1))
+  | Iintarithmem(op, addr) ->
+      let op_name = function
+      | Iintadd -> "+i"
+      | Iintsub -> "-i"
+      | Iintand -> "&i"
+      | Iintor  -> "|i"
+      | Iintxor -> "^i"
+      in
+      fprintf ppf "%a %s [%a]" printreg arg.(0) (op_name op)
                    (print_addressing printreg addr)
                    (Array.sub arg 1 (Array.length arg - 1))
   | Ibswap i ->

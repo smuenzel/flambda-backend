@@ -369,6 +369,13 @@ let instr_for_floatarithmem = function
   | Ifloatsub -> I.subsd
   | Ifloatmul -> I.mulsd
   | Ifloatdiv -> I.divsd
+  
+let instr_for_intarithmem = function
+  | Iintadd -> I.add
+  | Iintsub -> I.sub
+  | Iintand -> I.and_
+  | Iintor -> I.or_
+  | Iintxor -> I.xor
 
 let cond = function
   | Isigned Ceq   -> E   | Isigned Cne   -> NE
@@ -839,6 +846,8 @@ let emit_instr fallthrough i =
       I.add (int n) (addressing addr QWORD i 0)
   | Lop(Ispecific(Ifloatarithmem(op, addr))) ->
       instr_for_floatarithmem op (addressing addr REAL8 i 1) (res i 0)
+  | Lop(Ispecific(Iintarithmem(op, addr))) ->
+      instr_for_intarithmem op (addressing addr QWORD i 1) (res i 0)
   | Lop(Ispecific(Ibswap 16)) ->
       I.xchg ah al;
       I.movzx (res16 i 0) (res i 0)
