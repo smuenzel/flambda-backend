@@ -228,6 +228,7 @@ method! select_store is_assign addr exp =
     ->
       super#select_store is_assign addr exp
 
+(* Recognize the LEA instruction *)
 method select_lea op args dbg =
   match self#select_addressing Word_int (Cop(op, args, dbg)) with
     (Iindexed _, _)
@@ -267,7 +268,6 @@ method! select_operation op args dbg =
   match op with
   | Caddi | Caddv | Cadda ->
     self#select_intarith true op Iintadd args dbg
-  (* Recognize the LEA instruction *)
   | Csubi ->
     self#select_intarith false Csubi Iintsub args dbg
   | Cand ->
@@ -275,7 +275,7 @@ method! select_operation op args dbg =
   | Cor ->
     self#select_intarith true Cor Iintor args dbg
   | Cxor ->
-    self#select_intarith true Cor Iintxor args dbg
+    self#select_intarith true Cxor Iintxor args dbg
   (* Recognize float arithmetic with memory. *)
   | Caddf ->
       self#select_floatarith true Iaddf Ifloatadd args
