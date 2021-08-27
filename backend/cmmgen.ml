@@ -904,6 +904,13 @@ and transl_prim_1 env p arg dbg =
       fatal_errorf "Cmmgen.transl_prim_1: %a"
         Printclambda_primitives.primitive p
 
+and transl_int_comp env cmp arg1 arg2 dbg =
+  match arg1, arg2 with
+  | Uprim (Pcompare_ints, [ carg1; carg2 ], _), Uconst (Uconst_int 0) ->
+
+  | _, _ ->
+    int_comp_caml cmp (transl env arg1) (transl env arg2) dbg
+
 and transl_prim_2 env p arg1 arg2 dbg =
   match p with
   (* Heap operations *)
@@ -958,7 +965,7 @@ and transl_prim_2 env p arg1 arg2 dbg =
   | Pasrint ->
       asr_int_caml (transl env arg1) (transl env arg2) dbg
   | Pintcomp cmp ->
-      int_comp_caml cmp (transl env arg1) (transl env arg2) dbg
+      transl_int_comp env cmp arg1 arg2 dbg
   | Pcompare_ints ->
       (* Compare directly on tagged ints *)
       mk_compare_ints dbg (transl env arg1) (transl env arg2)
