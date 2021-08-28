@@ -905,11 +905,23 @@ and transl_prim_1 env p arg dbg =
         Printclambda_primitives.primitive p
 
 and transl_int_comp env cmp arg1 arg2 dbg =
+  let transl_args_maybe_unbox env primitive a1 a2 dbg =
+    match primitive with
+    | Pcompare_ints -> transl env a1, transl env a2
+    | Pcompare_bints bi -> 
+      transl_unbox_int dbg env bi a1
+    , transl_unbox_int dbg env bi a2
+    | _ -> assert false
+  in
   match arg1, arg2 with
-  | Uprim (Pcompare_ints, [ carg1; carg2 ], _), Uconst (Uconst_int 0) ->
-    int_comp_caml cmp (transl env carg1) (transl env carg2) dbg
-  | Uconst (Uconst_int 0), Uprim(Pcompare_ints, [ carg1; carg2 ],_) -> 
-    int_comp_caml (Comparison.Integer.swap cmp) (transl env carg1) (transl env carg2) dbg
+  | Uprim ((Pcompare_ints | Pcompare_bints _ as primitive), [ carg1; carg2 ], _)
+  , Uconst (Uconst_int 0) ->
+    let carg1, carg2 = transl_args_maybe_unbox env primitive carg1 carg2 dbg in
+    int_comp_caml cmp carg1 carg2 dbg
+  | Uconst (Uconst_int 0)
+  , Uprim ((Pcompare_ints | Pcompare_bints _ as primitive), [ carg1; carg2 ],_) ->
+    let carg1, carg2 = transl_args_maybe_unbox env primitive carg1 carg2 dbg in
+    int_comp_caml (Comparison.Integer.swap cmp) carg1 carg2 dbg
   | _, _ ->
     int_comp_caml cmp (transl env arg1) (transl env arg2) dbg
 
